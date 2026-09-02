@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>JS Карточки — атомное обучение</title>
+<style>
+  :root {
+    --bg: #16181c;
+    --panel: #1f2226;
+    --panel-2: #262a2f;
+    --stripe-a: #ffb020;
+    --stripe-b: #16181c;
+    --text: #ece9e2;
+    --text-dim: #8b9098;
+    --accent: #ffb020;
+    --teal: #48c9b0;
+    --danger: #e5533d;
+    --border: #33373d;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+    overscroll-behavior: none;
+  }
+  #app {
+    max-width: 640px;
+    margin: 0 auto;
+    min-height: 100%;
+    display: flex;
+    flex-direction: column;
+    padding: 14px 14px 28px;
+  }
+
+  .stripe {
+    height: 8px;
+    border-radius: 5px;
+    background: repeating-linear-gradient(135deg, var(--stripe-a), var(--stripe-a) 10px, var(--stripe-b) 10px, var(--stripe-b) 20px);
+    opacity: 0.9;
+    flex-shrink: 0;
+  }
+
+  header {
+    padding: 16px 2px 8px;
+    flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  h1 { margin: 0; font-size: 18px; font-weight: 800; letter-spacing: 0.3px; }
+  .sub { margin-top: 4px; font-size: 12px; color: var(--text-dim); }
+
+  .streak {
+    flex-shrink: 0;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 12px;
+    text-align: center;
+    min-width: 62px;
+  }
+  .streak-num { font-size: 18px; font-weight: 800; color: var(--accent); line-height: 1; }
+  .streak-label { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+  .streak.pulse { animation: pulse .35s ease; }
+  @keyframes pulse { 0%{transform:scale(1);} 40%{transform:scale(1.18);} 100%{transform:scale(1);} }
+
+  .tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 2px 4px; flex-shrink: 0; }
+  .tab {
+    flex: 1 1 auto; min-width: 0; padding: 9px 8px;
+    border-radius: 10px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text-dim);
+    font-size: 11.5px; font-weight: 700; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis; text-align: center;
+    cursor: pointer; transition: all .15s ease; position: relative;
+  }
+  .tab.active { background: var(--accent); color: #201400; border-color: var(--accent); }
+  .tab.complete:not(.active) { border-color: var(--teal); color: var(--teal); }
+  .tab .count { opacity: 0.75; font-weight: 600; margin-left: 2px; }
+
+  .progress-row { display: flex; align-items: center; gap: 10px; padding: 10px 2px 4px; flex-shrink: 0; }
+  .progress-track { flex: 1; height: 6px; border-radius: 4px; background: var(--panel-2); overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--teal), var(--accent)); border-radius: 4px; transition: width .25s ease; width: 0%; }
+  .progress-label { font-size: 11.5px; color: var(--text-dim); font-weight: 700; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  .card-zone { flex: 1; display: flex; flex-direction: column; justify-content: center; padding: 10px 2px; min-height: 340px; }
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 22px 20px 20px; min-height: 300px; display: flex; flex-direction: column;
+    position: relative; box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+  }
+  .card-eyebrow { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--accent); font-weight: 800; margin-bottom: 10px; }
+  .q-text { font-size: 17px; font-weight: 700; line-height: 1.45; color: var(--text); }
+  .q-text pre, .a-text pre { background: #101214; border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; overflow-x: auto; margin: 10px 0; font-size: 13px; }
+  .q-text code, .a-text code { font-family: "SF Mono", SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; }
+  .q-text pre code, .a-text pre code { background: none; padding: 0; }
+  .q-text code, .a-text code { background: rgba(255,176,32,0.12); color: #ffcf7a; padding: 1px 5px; border-radius: 4px; font-size: 0.92em; }
+  .a-text strong { color: var(--teal); }
+
+  .answer-zone { margin-top: 16px; flex: 1; display: flex; flex-direction: column; position: relative; }
+
+  .blur-hint {
+    margin-top: 16px; padding: 14px 16px; border-radius: 10px; background: var(--panel-2);
+    border: 1px dashed var(--border); color: var(--text-dim); font-size: 13px;
+    text-align: center; letter-spacing: 0.2px; cursor: pointer;
+  }
+
+  .a-wrap { display: none; animation: reveal .25s ease; }
+  .a-wrap.shown { display: block; }
+  @keyframes reveal { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  .a-divider { height: 1px; background: repeating-linear-gradient(90deg, var(--accent), var(--accent) 6px, transparent 6px, transparent 12px); opacity: 0.5; margin: 4px 0 14px; }
+  .a-label { font-size: 11px; text-transform: uppercase; letter-spacing: 1.2px; color: var(--teal); font-weight: 800; margin-bottom: 8px; }
+  .a-text { font-size: 15.5px; line-height: 1.55; color: var(--text); }
+
+  .nav-row { display: flex; gap: 10px; padding: 14px 2px 0; flex-shrink: 0; }
+  .nav-btn {
+    flex: 1; padding: 15px; border-radius: 10px; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text); font-size: 14px; font-weight: 800;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .nav-btn:active { transform: scale(0.98); }
+  .nav-btn.forgot { background: rgba(229,83,61,0.12); border-color: var(--danger); color: #ff8b78; }
+  .nav-btn.know { background: var(--teal); border-color: var(--teal); color: #062420; }
+  .nav-btn.wide { flex: 1 1 100%; }
+
+  .reset-row { text-align: center; padding-top: 12px; }
+  .reset-link { background: none; border: none; color: var(--text-dim); font-size: 12px; text-decoration: underline; cursor: pointer; padding: 6px; }
+
+  /* CELEBRATION */
+  .celebrate { text-align: center; padding: 30px 10px; display: none; }
+  .celebrate.show { display: block; animation: reveal .3s ease; }
+  .celebrate .big { font-size: 44px; margin-bottom: 6px; }
+  .celebrate h2 { margin: 6px 0; font-size: 19px; }
+  .celebrate p { color: var(--text-dim); font-size: 13px; margin: 4px 0 18px; }
+
+  @media (max-width: 380px) {
+    .q-text { font-size: 15.5px; }
+    .a-text { font-size: 14.5px; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="stripe"></div>
+  <header>
+    <div>
+      <h1>⚙️ JS Карточки</h1>
+      <div class="sub">Тапни по карточке — открой ответ. Оцени себя честно.</div>
+    </div>
+    <div class="streak" id="streakBox">
+      <div class="streak-num" id="streakNum">0</div>
+      <div class="streak-label">🔥 стрик</div>
+    </div>
+  </header>
+
+  <div class="tabs" id="tabs"></div>
+
+  <div class="progress-row">
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="progress-label" id="progressLabel">0 / 0</div>
+  </div>
+
+  <div class="card-zone">
+    <div class="card" id="cardView">
+      <div class="card-eyebrow" id="cardEyebrow">БЛОК · 1 / 25</div>
+      <div class="q-text" id="qText"></div>
+      <div class="answer-zone">
+        <div class="blur-hint" id="blurHint">🔒 Тапни, чтобы увидеть ответ</div>
+        <div class="a-wrap" id="aWrap">
+          <div class="a-divider"></div>
+          <div class="a-label">Ответ</div>
+          <div class="a-text" id="aText"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="celebrate" id="celebrate">
+      <div class="big">🎉</div>
+      <h2>Блок пройден!</h2>
+      <p id="celebrateStats"></p>
+    </div>
+  </div>
+
+  <div class="nav-row" id="navRow">
+    <button class="nav-btn forgot" id="forgotBtn" style="display:none;">😵 Забыл</button>
+    <button class="nav-btn know" id="knowBtn" style="display:none;">💪 Знаю</button>
+    <button class="nav-btn wide" id="againBtn" style="display:none;">🔁 Пройти блок ещё раз</button>
+  </div>
+  <div class="reset-row"><button class="reset-link" id="resetBtn">Сбросить прогресс этого блока</button></div>
+</div>
+
+<script id="cards-data" type="application/json">[{"title": "📗 БЛОК 1. ЦИКЛЫ (Loops)", "cards": [{"q": "**Что такое цикл простыми словами?**", "a": "Конструкция, которая повторяет один и тот же код несколько раз («сделай одно и то же много раз»)."}, {"q": "**Зачем вообще нужны циклы, если можно писать код руками несколько раз?**", "a": "Чтобы не дублировать код: повторять действия, обрабатывать списки данных, автоматизировать однотипные операции."}, {"q": "**Что выведет код?**\n```js\nfor (let i = 0; i < 3; i++) {\n  console.log(i);\n}\n```", "a": "`0 1 2` (i начинается с 0, условие i<3, после каждого шага +1)"}, {"q": "**Напиши синтаксис цикла `for` (общий вид, без конкретного примера).**", "a": "```js\nfor (инициализация; условие; изменение) {\n  код\n}\n```"}, {"q": "**Какие 3 части разделены точкой с запятой в `for (...)`? И в каком порядке выполняются на каждом шаге?**", "a": "Инициализация → условие → тело цикла → изменение счётчика → снова условие... Порядок: 1) создать переменную, 2) проверить условие, 3) выполнить код, 4) изменить переменную, 5) повтор."}, {"q": "**Когда лучше использовать `for`, а не `while`?**", "a": "Когда заранее известно количество повторений и/или нужен контроль над индексом."}, {"q": "**Что выведет?**\n```js\nlet i = 0;\nwhile (i < 5) {\n  console.log(i);\n  i++;\n}\n```", "a": "`0 1 2 3 4`"}, {"q": "**Когда стоит выбрать `while`, а не `for`?**", "a": "Когда заранее неизвестно точное количество повторений — важно только условие остановки."}, {"q": "**В чём главное отличие `do...while` от `while`?**", "a": "`do...while` выполнит тело цикла **минимум один раз**, даже если условие сразу ложно. `while` может не выполниться ни разу."}, {"q": "**Сколько раз выполнится этот код?**\n```js\nlet i = 10;\ndo {\n  console.log(i);\n  i++;\n} while (i < 5);\n```", "a": "1 раз (выведет `10`). Тело выполняется хотя бы один раз, а условие проверяется уже после."}, {"q": "**Для чего используется `for...of` и что он НЕ даёт тебе напрямую (в отличие от обычного `for`)?**", "a": "`for...of` перебирает элементы массива (значения). Он не даёт индекс напрямую — просто «иди по всем элементам»."}, {"q": "**Что выведет?**\n```js\nlet fruits = [\"Apple\", \"Banana\", \"Orange\"];\nfor (let fruit of fruits) {\n  console.log(fruit);\n}\n```", "a": "`Apple`, `Banana`, `Orange` — каждое на новой строке."}, {"q": "**НАЙДИ ОШИБКУ. Что не так в этом коде и что произойдёт?**\n```js\nlet i = 0;\nwhile (i < 5) {\n  console.log(i);\n}\n```", "a": "Забыли изменить `i` внутри цикла (нет `i++`). Условие `i < 5` всегда истинно → **бесконечный цикл**, программа зависает."}, {"q": "**НАЙДИ ОШИБКУ. Что подозрительно в этом коде?**\n```js\nlet arr = [1, 2, 3];\nfor (let i = 0; i <= arr.length; i++) {\n  console.log(arr[i]);\n}\n```", "a": "Условие `i <= arr.length` вместо `i < arr.length` — цикл выйдет за пределы массива, последним выведется `undefined`."}, {"q": "**Что выведет этот классический баг-пример на бесконечный цикл?**\n```js\nwhile (true) {\n}\n```", "a": "Ничего не выведет, но программа зависнет навсегда — классический бесконечный цикл без условия выхода."}, {"q": "**Что выведет код (обработка массива через цикл)?**\n```js\nlet prices = [100, 200, 300];\nlet total = 0;\nfor (let i = 0; i < prices.length; i++) {\n  total = total + prices[i];\n}\nconsole.log(\"Total: \" + total);\n```", "a": "`Total: 600`"}, {"q": "**Что выведет этот код с `for...of` (тот же смысл, но проще)?**\n```js\nlet prices = [100, 200, 300];\nlet total = 0;\nfor (let price of prices) {\n  total = total + price;\n}\nconsole.log(total);\n```", "a": "`600`"}, {"q": "**Что выведет и почему возникнет ошибка?**\n```js\nfor (let j = 0; j < 3; j++) {\n  console.log(j);\n}\nconsole.log(j);\n```", "a": "Выведет `0 1 2`, а потом `ReferenceError: j is not defined` — переменная `j`, объявленная через `let` в `for`, живёт только внутри цикла (локальная область видимости)."}, {"q": "**Что выведет этот цикл с шагом умножения?**\n```js\nfor (let j = 2; j < 20; j *= 2) {\n  console.log(j);\n}\n```", "a": "`2 4 8 16` (2→4→8→16→32, но 32 уже не < 20, стоп)"}, {"q": "**Разница между `n++` и `++n` — что выведет?**\n```js\nlet n = 9;\nconsole.log(n++);\nconsole.log(n);\nconsole.log(++n);\n```", "a": "`9` (постфиксный — сначала возвращает старое значение, потом увеличивает), затем `10`, затем `11` (префиксный — сначала увеличивает, потом возвращает)."}, {"q": "**Что выведет цикл `for...of` по массиву, если внутри пытаться менять элемент через переменную цикла?**\n```js\nlet fruits = [\"banana\", \"apple\"];\nfor (let fruit of fruits) {\n  fruit = fruit + \"!\";\n}\nconsole.log(fruits);\n```", "a": "`[\"banana\", \"apple\"]` — массив НЕ изменится. `fruit` — это копия значения, а не ссылка на ячейку массива."}, {"q": "**НАЙДИ ОШИБКУ. Почему здесь `res` вызовет ошибку после цикла?**\n```js\nlet number = 2;\nwhile (number < 10) {\n  let res = number % 2 === 0 ? \"even\" : \"odd\";\n  number *= 2;\n}\nconsole.log(res);\n```", "a": "`res` объявлена через `let` внутри тела цикла → область видимости только внутри блока `{}`. Снаружи — `ReferenceError`."}, {"q": "**Как выбрать между 4 видами циклов? Заполни правило:**\n`for` → ___, `while` → ___, `do...while` → ___, `for...of` → ___", "a": "`for` → известно количество / нужен индекс. `while` → зависит от условия, число повторов неизвестно. `do...while` → нужно выполнить хотя бы 1 раз. `for...of` → простой перебор массива без индекса."}, {"q": "**Что выведет цикл с `i+=1` в стиле \"python-way\", если писать в JS?**\n```js\nfor (let i = 0; i < 5; i += 1) {\n  console.log(\"Hello\");\n}\n```", "a": "5 раз выведет `Hello` — `i += 1` эквивалентно `i++` по эффекту."}, {"q": "**Что покажет дебаггер по переменной `i` при выполнении этого цикла (последовательность значений)?**\n```js\nfor (let i = 0; i < 3; i++) {\n  console.log(i);\n}\n```", "a": "`i → 0 → 1 → 2` (после 2 условие `i<3` становится ложным, цикл останавливается на i=3, но код внутри уже не выполняется)"}]}, {"title": "📘 БЛОК 2. ФУНКЦИИ (Functions)", "cards": [{"q": "**Что такое функция простыми словами?**", "a": "Блок кода, который выполняет определённую задачу — «команда с именем», которую можно вызвать."}, {"q": "**Выполнится ли этот код сам по себе, без дополнительного вызова?**\n```js\nfunction sayHello() {\n  console.log(\"Hello\");\n}\n```", "a": "Нет. Код внутри функции не выполняется, пока функцию не вызовут явно: `sayHello();`"}, {"q": "**Что выведет?**\n```js\nfunction sayHello() {\n  console.log(\"Hello\");\n}\nsayHello;\n```", "a": "Ничего не выведет! `sayHello;` без скобок — это просто ссылка на функцию, а не вызов. Нужно `sayHello();`"}, {"q": "**В чём разница между параметром и аргументом?**", "a": "Параметр — переменная в объявлении функции («какая переменная»). Аргумент — реальное значение при вызове («какое значение»)."}, {"q": "**В коде `function greet(name) {...}` и вызове `greet(\"Ivan\")` — что здесь параметр, а что аргумент?**", "a": "`name` — параметр (формальный, в объявлении). `\"Ivan\"` — аргумент (реальное значение при вызове)."}, {"q": "**Что выведет?**\n```js\nfunction sum(a, b) {\n  return a + b;\n}\nlet result = sum(2, 3);\nconsole.log(result);\n```", "a": "`5`"}, {"q": "**Что делает `return` в функции? (2 вещи)**", "a": "1) Завершает выполнение функции. 2) Возвращает значение туда, откуда функцию вызвали."}, {"q": "**НАЙДИ ОШИБКУ. Что вернёт эта функция и что выведется?**\n```js\nfunction sum(a, b) {\n  a + b;\n}\nconsole.log(sum(2, 3));\n```", "a": "`undefined`. Забыли `return` — функция без return всегда возвращает `undefined`, даже если внутри что-то вычисляется."}, {"q": "**Что выведет вызов с недостаточным числом аргументов?**\n```js\nfunction sum(a, b) {\n  return a + b;\n}\nconsole.log(sum(2));\n```", "a": "`NaN`. `b` будет `undefined`, а `2 + undefined = NaN`."}, {"q": "**Что такое сигнатура функции?**", "a": "Имя функции + список параметров. Например, в `function sum(a, b)` сигнатура — это `sum(a, b)`."}, {"q": "**Что такое контракт функции? Приведи пример на `function sum(a, b) { return a + b; }`**", "a": "Контракт — что функция принимает, что делает и что возвращает. Для sum: принимает два числа → возвращает их сумму."}, {"q": "**Какие имена функций хорошие, а какие плохие? Дай по 2 примера каждого.**", "a": "Хорошие (понятный глагол+смысл): `calculateTotal()`, `getUserName()`. Плохие (непонятно что делают): `f()`, `x()`, `doIt()`."}, {"q": "**Что выведет?**\n```js\nfunction calculateTotal(price, quantity) {\n  return price * quantity;\n}\nlet total = calculateTotal(100, 3);\nconsole.log(\"Total: \" + total);\n```", "a": "`Total: 300`"}, {"q": "**Зачем нужны функции — назови 3 причины.**", "a": "1) Не дублировать код. 2) Разбивать программу на части. 3) Улучшать читаемость кода."}, {"q": "**Что покажет дебаггер (значения a, b, result) для этого кода?**\n```js\nfunction sum(a, b) {\n  return a + b;\n}\nlet result = sum(2, 3);\n```", "a": "`a → 2`, `b → 3`, `result → 5`"}, {"q": "**Чем отличается функция с `return` от функции без `return` в таблице \"что можно/нельзя\"?**", "a": "С return: возвращает значение → можно использовать/сохранить результат. Без return: просто выполняет действие → нельзя сохранить результат (будет undefined)."}, {"q": "**НАЙДИ ОШИБКУ. Что не так с вызовом функции?**\n```js\nfunction greet(name) {\n  console.log(\"Hello, \" + name);\n}\ngreet(\"Ivan\");\ngreet(\"Maria\");\nconsole.log(name);\n```", "a": "`name` — параметр функции, существует только внутри `greet`. За пределами функции вызовет `ReferenceError: name is not defined`."}, {"q": "**Что выведет код с объектом и `for...in`?**\n```js\nconst user = { id: 7, name: \"John\", age: 25 };\nfor (let key in user) {\n  console.log(key, user[key]);\n}\n```", "a": "```\nid 7\nname John\nage 25\n```\n`for...in` перебирает КЛЮЧИ объекта (не значения напрямую)."}, {"q": "**Как получить доступ к свойству объекта с пробелом в названии, например `\"is Admin\"`? Почему `user.is Admin` не сработает?**", "a": "Через квадратные скобки: `user[\"is Admin\"]`. Точечная нотация не работает с пробелами/спецсимволами в имени свойства — это синтаксическая ошибка."}, {"q": "**Что выведет, если случайно перепутать `for...in` с `for...of` на массиве?**\n```js\nconst fruits = [\"apple\", \"kiwi\", \"banana\"];\nfor (let i in fruits) {\n  console.log(i, fruits[i]);\n}\n```", "a": "```\n0 apple\n1 kiwi\n2 banana\n```\nТехнически сработает (потому что индексы массива — это тоже \"ключи\"), но `for...in` для массивов — плохая практика: `i` здесь строка \"0\",\"1\",\"2\", а не число, и есть риск получить лишние свойства."}, {"q": "**Почему в примере `greet(\"Ivan\"); greet(\"Maria\");` функция — это \"гибкость\", а два отдельных `console.log(\"Hello, Ivan\")` и `console.log(\"Hello, Maria\")` — нет?**", "a": "Функция описывает логику ОДИН раз, а данные (имя) передаются каждый раз разные через параметр. Без функции пришлось бы копировать код заново под каждое имя."}, {"q": "**Дополни правило именования: как должно называться имя функции, чтобы код был понятным?**", "a": "Имя должно объяснять, что именно делает функция, обычно начинается с глагола: `calculateX`, `getY`, `printZ`."}, {"q": "**Что выведет вызов функции без аргументов там, где параметр обязателен?**\n```js\nfunction printSum(a, b) {\n  console.log(a + b);\n}\nprintSum();\n```", "a": "`NaN` — оба параметра `undefined`, `undefined + undefined = NaN`."}, {"q": "**Функция `printSum` из прошлой карточки ничего не возвращает через return. Можно ли сохранить её результат в переменную?**\n```js\nlet x = printSum(2, 3);\nconsole.log(x);\n```", "a": "Нет полезного результата: `x` будет `undefined`, потому что `printSum` не использует `return`, а просто делает `console.log`."}, {"q": "**Собери по памяти: 5 главных выводов темы \"Функции\".**", "a": "1) Функция — переиспользуемый блок кода. 2) Параметры — переменные, аргументы — значения. 3) Есть функции с return и без. 4) Сигнатура = имя + параметры, контракт = поведение. 5) Хорошие имена делают код понятным."}]}, {"title": "📙 БЛОК 3. МЕТОДЫ МАССИВОВ: map / filter / reduce", "cards": [{"q": "**Что делает метод `map`? Одним предложением.**", "a": "Преобразует КАЖДЫЙ элемент массива и возвращает новый массив той же длины."}, {"q": "**Что выведет?**\n```js\nlet numbers = [1, 2, 3];\nlet result = numbers.map(function (num) {\n  return num * 2;\n});\nconsole.log(result);\n```", "a": "`[2, 4, 6]`"}, {"q": "**Что делает метод `filter`? Одним предложением.**", "a": "Оставляет только те элементы, которые подходят под условие (может вернуть массив короче исходного)."}, {"q": "**Что выведет?**\n```js\nlet numbers = [1, 2, 3, 4];\nlet result = numbers.filter(function (num) {\n  return num > 2;\n});\nconsole.log(result);\n```", "a": "`[3, 4]`"}, {"q": "**Что делает метод `reduce`? Что означает `acc` и что означает второй аргумент (например `0`)?**", "a": "`reduce` сводит весь массив к ОДНОМУ значению. `acc` — накопитель (промежуточный результат), второй аргумент функции reduce — стартовое значение накопителя."}, {"q": "**Что выведет?**\n```js\nlet numbers = [1, 2, 3];\nlet sum = numbers.reduce(function (acc, num) {\n  return acc + num;\n}, 0);\nconsole.log(sum);\n```", "a": "`6`"}, {"q": "**Чем `find` отличается от `filter` по результату?**", "a": "`find` возвращает только ПЕРВЫЙ подходящий элемент (или undefined, если нет). `filter` возвращает МАССИВ всех подходящих элементов."}, {"q": "**Что выведет?**\n```js\nlet numbers = [1, 2, 3, 4];\nlet result = numbers.find(function (num) {\n  return num > 2;\n});\nconsole.log(result);\n```", "a": "`3` (первый элемент больше 2, не массив, а само значение)"}, {"q": "**Разница между `some` и `every`?**", "a": "`some` — true, если ХОТЯ БЫ ОДИН элемент подходит под условие. `every` — true, только если ВСЕ элементы подходят."}, {"q": "**Что выведет?**\n```js\nlet numbers = [1, 2, 3];\nconsole.log(numbers.some(function (n) { return n > 2; }));\nconsole.log(numbers.every(function (n) { return n > 0; }));\nconsole.log(numbers.every(function (n) { return n > 2; }));\n```", "a": "`true`, `true`, `false` (не все элементы больше 2)"}, {"q": "**Чем `forEach` принципиально отличается от `map`?**", "a": "`forEach` просто выполняет действие для каждого элемента и НЕ возвращает новый массив (возвращает `undefined`). `map` возвращает новый преобразованный массив."}, {"q": "**НАЙДИ ОШИБКУ. Что не так с этим кодом, если хотели получить новый массив?**\n```js\nlet numbers = [1, 2, 3];\nlet doubled = numbers.forEach(function (num) {\n  return num * 2;\n});\nconsole.log(doubled);\n```", "a": "`doubled` будет `undefined`. Нужно использовать `map`, а не `forEach` — `forEach` не собирает результаты в новый массив."}, {"q": "**Что делает `sort`? Есть ли у него побочный эффект?**", "a": "Сортирует массив. Важно: **изменяет исходный массив** (мутирует его), а не создаёт новый."}, {"q": "**НАЙДИ ОШИБКУ. Почему результат может быть \"неправильным\"?**\n```js\nlet numbers = [10, 2, 1];\nnumbers.sort();\nconsole.log(numbers);\n```", "a": "Выведет `[1, 10, 2]` — без функции сравнения `sort()` сортирует как СТРОКИ (по алфавиту символов), а не как числа. Нужно: `numbers.sort((a, b) => a - b)`."}, {"q": "**Что такое \"цепочка методов\" (chaining)? Что делает этот код по шагам?**\n```js\nlet numbers = [1, 2, 3, 4, 5];\nlet result = numbers\n  .filter(function (num) { return num > 2; })\n  .map(function (num) { return num * 2; });\n```", "a": "Сначала `filter` оставляет `[3, 4, 5]`, потом `map` умножает каждый на 2 → результат `[6, 8, 10]`. Методы вызываются один за другим на результате предыдущего."}, {"q": "**Что выведет этот практический пример с объектами?**\n```js\nlet products = [\n  { name: \"Phone\", price: 300 },\n  { name: \"Laptop\", price: 1000 },\n  { name: \"Tablet\", price: 500 }\n];\nlet result = products\n  .filter(function (p) { return p.price > 400; })\n  .map(function (p) { return p.name; });\nconsole.log(result);\n```", "a": "`[\"Laptop\", \"Tablet\"]` (Phone отфильтровался, т.к. 300 не больше 400)"}, {"q": "**НАЙДИ ОШИБКУ. Что вернёт `map`, если забыть `return` внутри колбэка?**\n```js\nlet numbers = [1, 2, 3];\nlet result = numbers.map(function (num) {\n  num * 2;\n});\nconsole.log(result);\n```", "a": "`[undefined, undefined, undefined]` — без `return` колбэк ничего не возвращает для каждого элемента."}, {"q": "**Зачем вообще нужны методы массива (map/filter/etc), если есть циклы `for`?**", "a": "Код становится короче, понятнее и с меньшим числом ошибок — не нужно вручную создавать индекс и промежуточный массив."}, {"q": "**Что означает порядок в цепочке `.filter().map()` — можно ли поменять местами без последствий?**", "a": "Не всегда! Порядок методов важен: сначала фильтруем нужные элементы, потом преобразуем. Если поменять местами (map потом filter), логика фильтрации может измениться (фильтр будет проверять уже преобразованные значения)."}, {"q": "**Реши в уме: что выведет?**\n```js\nlet nums = [5, 10, 15, 20];\nlet result = nums\n  .filter(n => n >= 10)\n  .reduce((acc, n) => acc + n, 0);\nconsole.log(result);\n```", "a": "`45` (фильтр оставляет `[10, 15, 20]`, reduce суммирует: 10+15+20=45)"}, {"q": "**Сопоставь метод → что возвращает: map, filter, reduce, find, some/every, forEach.**", "a": "map → новый массив (преобразованный). filter → новый массив (отфильтрованный). reduce → одно значение. find → один элемент (или undefined). some/every → true/false. forEach → undefined (просто побочный эффект)."}, {"q": "**Что выведет, если в массиве нет подходящего элемента для `find`?**\n```js\nlet numbers = [1, 2, 3];\nlet result = numbers.find(function (n) { return n > 10; });\nconsole.log(result);\n```", "a": "`undefined`"}, {"q": "**Реши в уме: что выведет?**\n```js\nlet words = [\"hi\", \"hello\", \"hey\"];\nlet lengths = words.map(w => w.length);\nconsole.log(lengths);\n```", "a": "`[2, 5, 3]`"}, {"q": "**НАЙДИ ОШИБКУ. Логически что здесь странно, даже если кода без синтаксических ошибок?**\n```js\nlet numbers = [1, 2, 3];\nnumbers.filter(function (n) { return n * 2; });\nconsole.log(numbers);\n```", "a": "Результат `filter` никуда не сохранён (нет `let result = ...`), а сам исходный массив `numbers` не меняется — filter не мутирует массив. Плюс колбэк возвращает `n * 2`, а не булево условие — filter оставит все элементы, где `n*2` не равно 0/false (то есть почти все)."}, {"q": "**Собери по памяти: назови все 8 методов массива из этого урока и их суть одним словом.**", "a": "map → преобразование, filter → фильтрация, reduce → сведение к одному значению, find → первый подходящий, some → есть хотя бы один, every → все ли подходят, forEach → перебор (без результата), sort → сортировка (мутирует массив)."}]}, {"title": "📕 БЛОК 4. РАБОТА С API (HTTP, REST, fetch/axios)", "cards": [{"q": "**Что такое API одним предложением?**", "a": "Способ, с помощью которого программы общаются друг с другом — «интерфейс для запроса данных»."}, {"q": "**Что такое HTTP?**", "a": "Протокол передачи данных между клиентом (твоей программой) и сервером (внешним сервисом)."}, {"q": "**Нарисуй в голове схему: кто кому что отправляет — request и response?**", "a": "Клиент → отправляет request (запрос) → Сервер. Сервер → отправляет response (ответ) → обратно клиенту."}, {"q": "**Назови 4 основные части HTTP-запроса.**", "a": "URL (адрес), Method (тип запроса), Headers (доп. информация), Body (данные, обычно для POST)."}, {"q": "**Какие есть основные HTTP-методы и что каждый означает?**", "a": "GET → получить данные. POST → отправить данные. PUT → обновить данные. DELETE → удалить данные."}, {"q": "**Что такое REST одним предложением?**", "a": "Стиль построения API, где URL = ресурс, а метод (GET/POST/...) = действие над этим ресурсом."}, {"q": "**По REST-конвенции: что делает `GET /users`, а что `POST /users`?**", "a": "`GET /users` → получить список пользователей. `POST /users` → создать нового пользователя."}, {"q": "**Что делает `fetch` в общих чертах?**", "a": "Встроенный (не нужно ничего устанавливать) способ отправки HTTP-запросов из JavaScript."}, {"q": "**НАЙДИ ОШИБКУ. Чего не хватает / что забыли в первом `.then`?**\n```js\nfetch(\"https://jsonplaceholder.typicode.com/posts\")\n  .then(function (response) {\n    console.log(response);\n  })\n  .then(function (data) {\n    console.log(data);\n  });\n```", "a": "Забыли `return response.json();` в первом `.then`. Без этого второй `.then` получит `undefined`, а не распарсенные данные."}, {"q": "**Как правильно получить и вывести данные через fetch (напиши структуру по памяти)?**", "a": "```js\nfetch(url)\n  .then(function (response) {\n    return response.json();\n  })\n  .then(function (data) {\n    console.log(data);\n  });\n```"}, {"q": "**Как отправить POST-запрос через `fetch`? Какие 3 поля нужны в объекте настроек?**", "a": "`method: \"POST\"`, `headers: { \"Content-Type\": \"application/json\" }`, `body: JSON.stringify({...})`."}, {"q": "**Чем `axios` отличается от `fetch` по установке?**", "a": "`fetch` встроен в JavaScript, ничего устанавливать не нужно. `axios` — внешняя библиотека, нужно ставить через `npm install axios`."}, {"q": "**В чём разница синтаксиса: `fetch` требует `.json()`, а `axios` сразу даёт что?**", "a": "В axios данные сразу доступны через `response.data` — не нужно вызывать `.json()` вручную, как в fetch."}, {"q": "**Что выведет этот код на axios?**\n```js\nconst axios = require(\"axios\");\naxios.get(\"https://jsonplaceholder.typicode.com/posts\")\n  .then(function (response) {\n    console.log(response.data);\n  });\n```", "a": "Массив постов (данные), полученные с сервера — доступ именно через `response.data`."}, {"q": "**Заполни таблицу fetch vs axios: что встроено, что удобнее?**", "a": "fetch: встроен в JS, но требует больше кода (ручная обработка .json()). axios: нужно устанавливать отдельно, но синтаксис проще и удобнее."}, {"q": "**НАЙДИ ОШИБКУ. Что перепутано в этом коде на axios?**\n```js\naxios.get(\"https://jsonplaceholder.typicode.com/posts\")\n  .then(function (response) {\n    console.log(response.json());\n  });\n```", "a": "`.json()` — это метод от `fetch`, а не от `axios`! В axios данные уже готовы в `response.data`, вызывать `.json()` не нужно (и вызовет ошибку)."}, {"q": "**Как связаны функции и работа с API? Приведи структуру обёртки.**", "a": "Часто fetch/axios оборачивают в функцию для переиспользования: `function loadData() { fetch(...) }`, потом просто вызывают `loadData()`."}, {"q": "**Как отправить POST-запрос через `axios` — что передаётся вторым аргументом?**", "a": "```js\naxios.post(url, { title: \"Hello\", body: \"World\" })\n  .then(function (response) {\n    console.log(response.data);\n  });\n```\nВторой аргумент — сразу объект с данными (без JSON.stringify и headers, в отличие от fetch)."}, {"q": "**Назови 4 частые ошибки при работе с API из этого урока.**", "a": "1) Забыли `return response.json()`. 2) Неправильный URL. 3) Не указали headers в POST. 4) Перепутали `response` и `response.data` в axios."}, {"q": "**Практический пример: что делает эта функция по шагам?**\n```js\nfunction loadPosts() {\n  fetch(\"https://jsonplaceholder.typicode.com/posts\")\n    .then(function (response) {\n      return response.json();\n    })\n    .then(function (data) {\n      console.log(\"Posts:\", data);\n    });\n}\nloadPosts();\n```", "a": "1) Вызывает `loadPosts()`. 2) Отправляет GET-запрос на URL. 3) Получает ответ, парсит его в JSON. 4) Выводит данные в консоль с подписью \"Posts:\"."}]}, {"title": "📔 БЛОК 5. ОБРАБОТКА ОТВЕТОВ API (включая AI)", "cards": [{"q": "**В каком формате обычно приходят данные от API?**", "a": "JSON — обычно это массив объектов (или объект)."}, {"q": "**В axios: чем отличается `response` от `response.data`?**", "a": "`response` — весь объект ответа (статус, заголовки и т.д.). `response.data` — именно нужные данные, которые прислал сервер."}, {"q": "**Дан ответ API:**\n```json\n[\n  { \"id\": 1, \"name\": \"Ivan\" },\n  { \"id\": 2, \"name\": \"Anna\" }\n]\n```\n**Как одним словом описать структуру этих данных?**", "a": "Массив объектов."}, {"q": "**Как найти пользователя с `id === 2` в массиве `data`?**", "a": "```js\nlet user = data.find(function (item) {\n  return item.id === 2;\n});\n```"}, {"q": "**Как получить только пользователей старше 25 лет из массива `data`?**", "a": "```js\nlet adults = data.filter(function (user) {\n  return user.age > 25;\n});\n```"}, {"q": "**Как получить массив только имён из массива объектов `data`?**", "a": "```js\nlet names = data.map(function (user) {\n  return user.name;\n});\n```"}, {"q": "**Что делает этот комбинированный код?**\n```js\nlet result = data\n  .filter(function (user) { return user.age > 25; })\n  .map(function (user) { return user.name; });\n```", "a": "Сначала оставляет только пользователей старше 25, потом достаёт только их имена → результат: массив имён взрослых пользователей."}, {"q": "**Ответ от AI API выглядит так: `{ \"response\": \"Python is a programming language\" }`. Как достать сам текст ответа в JS?**", "a": "```js\nlet answer = response.data.response;\n```\n(поле называется `response`, а весь объект тоже называется `response` — не перепутать!)"}, {"q": "**Что выведет этот код, обращающийся к AI API?**\n```js\naxios.post(\"https://mlvoca.com/api/tinyllama\", {\n  prompt: \"What is Python?\"\n}).then(function (response) {\n  console.log(response.data);\n});\n```", "a": "Выведет весь объект ответа от AI, например: `{ response: \"Python is a programming language\" }`."}, {"q": "**НАЙДИ ОШИБКУ. Что перепутано (частая ошибка axios)?**\n```js\naxios.get(url).then(function (response) {\n  let users = response;\n  console.log(users.length);\n});\n```", "a": "Использовали `response` вместо `response.data`. `response` — это весь объект (со статусом и заголовками), а не сами данные. Нужно `response.data`."}, {"q": "**Практический пример: что делает этот код по шагам?**\n```js\naxios.get(\"https://jsonplaceholder.typicode.com/posts\")\n  .then(function (response) {\n    let posts = response.data;\n    let titles = posts\n      .filter(function (post) { return post.userId === 1; })\n      .map(function (post) { return post.title; });\n    console.log(titles);\n  });\n```", "a": "1) Получает посты с сервера. 2) Достаёт данные через `.data`. 3) Оставляет только посты пользователя с `userId === 1`. 4) Превращает их в массив заголовков (`title`). 5) Выводит массив заголовков."}, {"q": "**Назови 3 базовых операции для работы с данными API, которые чаще всего нужны.**", "a": "Искать (`find`), фильтровать (`filter`), преобразовывать (`map`)."}, {"q": "**Как связана тема \"Обработка ответов API\" с темой map/filter/reduce из прошлого урока?**", "a": "Это те же самые методы массива — просто теперь применяются не к придуманным числам, а к реальным данным, которые пришли с сервера в виде массива объектов."}, {"q": "**Назови 4 частые ошибки при обработке ответов API.**", "a": "1) Использовать `response` вместо `response.data` (в axios). 2) Не проверять структуру данных перед использованием. 3) Путать массив и объект. 4) Неправильная цепочка методов (map/filter в неверном порядке)."}, {"q": "**Как выглядит ответ от обычного REST API (например, jsonplaceholder) в отличие от ответа AI API (tinyllama)?**", "a": "REST API обычно возвращает массив объектов: `[{id, name}, ...]`. AI API возвращает один объект с полем текста: `{ \"response\": \"текст ответа\" }`."}, {"q": "**Практический пример с AI: что выведется в консоли?**\n```js\naxios.post(\"https://mlvoca.com/api/tinyllama\", {\n  prompt: \"Explain JavaScript\"\n}).then(function (response) {\n  let answer = response.data.response;\n  console.log(\"AI answer:\", answer);\n});\n```", "a": "`AI answer: <текст, который сгенерировал AI, например \"JavaScript is a programming language...\">`"}, {"q": "**Почему важно \"не проверять структуру данных\" считается ошибкой — что может пойти не так?**", "a": "Если предположить, что придёт массив, а пришёл объект (или наоборот), или отсутствует ожидаемое поле — код упадёт с ошибкой доступа (например, \"cannot read property of undefined\")."}, {"q": "**Собери цепочку: как получить заголовки постов пользователя с id=1, используя axios + filter + map (напиши с нуля по памяти).**", "a": "```js\naxios.get(url).then(function (response) {\n  let titles = response.data\n    .filter(function (post) { return post.userId === 1; })\n    .map(function (post) { return post.title; });\n  console.log(titles);\n});\n```"}, {"q": "**Что объединяет 4 темы из этого урока (Data Processing, API, JSON, Функции) в одну картину?**", "a": "Функции оборачивают логику → API даёт response → JSON описывает структуру данных → методы массива (map/filter/find) обрабатывают эти данные, превращая сырой ответ в то, что реально нужно."}, {"q": "**Финальный тест на понимание: что выведет этот код?**\n```js\naxios.get(url).then(function (response) {\n  let data = response.data;\n  let result = data\n    .filter(u => u.age >= 18)\n    .map(u => u.name)\n    .join(\", \");\n  console.log(result);\n});\n```\nЕсли `data` = `[{name:\"Ivan\",age:17},{name:\"Anna\",age:20},{name:\"Oleg\",age:19}]`", "a": "`Anna, Oleg` (Ivan отфильтровался — ему 17, меньше 18; остальные два имени объединены через запятую методом `.join(\", \")`)"}]}, {"title": "🧩 БЛОК 6. ОБЪЕКТЫ, JSON И ASYNC/AWAIT", "cards": [{"q": "Что такое объект в JS одним предложением?", "a": "Структура данных «ключ — значение», объединяющая связанные данные под одним именем."}, {"q": "Что выведет?\n```js\nlet user = { name: \"Ivan\", age: 25 };\nconsole.log(user.name);\n```", "a": "`Ivan`"}, {"q": "Как изменить существующее свойство объекта? Приведи пример.", "a": "```js\nuser.age = 26;\n```\nПросто присвоить новое значение через точку — свойство обновится."}, {"q": "Как добавить НОВОЕ свойство в уже существующий объект?", "a": "```js\nuser.email = \"ivan@example.com\";\n```\nПрисваивание через точку автоматически создаёт свойство, если его ещё не было."}, {"q": "Что выведет вложенный объект?\n```js\nlet user = {\n  name: \"Ivan\",\n  address: { city: \"Belgrade\", country: \"Serbia\" }\n};\nconsole.log(user.address.city);\n```", "a": "`Belgrade`"}, {"q": "Что такое JSON одним предложением?", "a": "Текстовый формат для передачи данных между системами, похожий по виду на объект JS."}, {"q": "Назови 3 отличия JSON от обычного объекта JS.", "a": "1) Ключи в JSON всегда в кавычках. 2) JSON — это строка (текст), а не переменная. 3) JSON не может содержать функции — только данные."}, {"q": "Что делает `JSON.stringify()`?", "a": "Превращает объект JS в строку JSON."}, {"q": "Что выведет?\n```js\nlet user = { name: \"Ivan\", age: 25 };\nlet json = JSON.stringify(user);\nconsole.log(json);\n```", "a": "`'{\"name\":\"Ivan\",\"age\":25}'` — это строка, а не объект!"}, {"q": "Что делает `JSON.parse()`?", "a": "Превращает строку JSON обратно в объект JS."}, {"q": "Что выведет?\n```js\nlet json = '{\"name\":\"Ivan\",\"age\":25}';\nlet user = JSON.parse(json);\nconsole.log(user.name);\n```", "a": "`Ivan`"}, {"q": "НАЙДИ ОШИБКУ. Что не так в этом JSON?\n```json\n{\n  name: \"Ivan\"\n}\n```", "a": "Ключ `name` написан без кавычек — в JSON ключи ВСЕГДА должны быть в кавычках: `\"name\"`."}, {"q": "НАЙДИ ОШИБКУ. Почему выведется `undefined`?\n```js\nlet json = '{\"name\":\"Ivan\"}';\nconsole.log(json.name);\n```", "a": "`json` — это просто строка, а не объект. Сначала нужно `JSON.parse(json)`, и только потом обращаться к `.name`."}, {"q": "Что такое конструктор функции (constructor function)? Приведи короткий пример.", "a": "Функция-шаблон для создания однотипных объектов через `new`.\n```js\nfunction Product(name, price) {\n  this.name = name;\n  this.price = price;\n}\n```"}, {"q": "Что делает ключевое слово `this` внутри функции-конструктора?", "a": "Ссылается на КОНКРЕТНЫЙ создаваемый объект — «этот» будущий экземпляр."}, {"q": "Что выведет?\n```js\nfunction Product(name, price) {\n  this.name = name;\n  this.price = price;\n}\nlet item = new Product(\"Phone\", 300);\nconsole.log(item.name, item.price);\n```", "a": "`Phone 300`"}, {"q": "Зачем нужно ключевое слово `new` при вызове конструктора?", "a": "Оно создаёт новый пустой объект, привязывает к нему `this` внутри функции-конструктора и возвращает готовый объект."}, {"q": "Можно ли положить функцию в качестве значения свойства объекта? Приведи пример.", "a": "Да.\n```js\nlet item = {\n  name: \"Phone\",\n  info: function () { return this.name; }\n};\n```\n`info` становится методом объекта."}, {"q": "Что выведет этот код (перебор объекта с методом внутри)?\n```js\nlet item = { name: \"Phone\", price: 300,\n  info: function () { return this.name + \" - \" + this.price; } };\nfor (let key in item) {\n  let value = typeof item[key] !== \"function\" ? item[key] : item[key]();\n  console.log(key + \": \" + value);\n}\n```", "a": "```\nname: Phone\nprice: 300\ninfo: Phone - 300\n```\nДля полей-функций нужно вызывать их через `()`, чтобы получить результат, а не текст функции."}, {"q": "Чем `async/await` отличается от `.then()` по смыслу (не по результату)?", "a": "Это два разных синтаксиса для одной и той же работы с асинхронным кодом. `async/await` выглядит как обычный последовательный код, `.then()` — как цепочка колбэков."}, {"q": "НАЙДИ ОШИБКУ. Почему этот код выдаст ошибку?\n```js\nconst response = await fetch(\"https://api.example.com/data\");\nconsole.log(response);\n```", "a": "`await` нельзя использовать на «верхнем уровне» кода без обёртки в `async`-функцию. Нужно:\n```js\nasync function load() {\n  const response = await fetch(url);\n}\n```"}, {"q": "Что выведет этот код без `await` (частая ошибка новичков)?\n```js\nlet res = fetch(\"https://api.example.com/data\");\nconsole.log(res);\n```", "a": "Выведет **Promise** (незавершённый) — объект-обещание, а не сами данные. `fetch` асинхронный, нужен либо `await`, либо `.then()`."}, {"q": "Перепиши эту цепочку `.then()` в стиле `async/await` (по памяти, без подглядывания):\n```js\nfetch(url).then(r => r.json()).then(data => console.log(data));\n```", "a": "```js\nasync function load() {\n  const r = await fetch(url);\n  const data = await r.json();\n  console.log(data);\n}\nload();\n```"}, {"q": "Как обработать ошибку сети при `async/await` (а не через `.catch`)?", "a": "Через `try...catch`:\n```js\nasync function load() {\n  try {\n    const r = await fetch(url);\n    const data = await r.json();\n  } catch (err) {\n    console.log(err);\n  }\n}\n```"}, {"q": "Собери по памяти: 5 главных выводов темы «Объекты, JSON, async/await».", "a": "1) Объект — «ключ-значение» для связанных данных.\n2) JSON — текстовый формат для передачи данных, ключи всегда в кавычках.\n3) `JSON.stringify`/`JSON.parse` переводят между объектом и строкой.\n4) Конструктор + `new` + `this` создают однотипные объекты.\n5) `async/await` — тот же fetch/Promise, но в виде «обычного» последовательного кода."}]}]</script>
+<script>
+(function () {
+  const DATA = JSON.parse(document.getElementById('cards-data').textContent);
+
+  function makeQueue(n) { const q = []; for (let i = 0; i < n; i++) q.push(i); return q; }
+
+  const state = {
+    blockIndex: 0,
+    streak: 0,
+    blocks: DATA.map(b => ({
+      queue: makeQueue(b.cards.length),
+      mastered: 0,
+      total: b.cards.length,
+      done: false
+    }))
+  };
+
+  const tabsEl = document.getElementById('tabs');
+  const cardEyebrow = document.getElementById('cardEyebrow');
+  const qText = document.getElementById('qText');
+  const aText = document.getElementById('aText');
+  const aWrap = document.getElementById('aWrap');
+  const blurHint = document.getElementById('blurHint');
+  const progressFill = document.getElementById('progressFill');
+  const progressLabel = document.getElementById('progressLabel');
+  const forgotBtn = document.getElementById('forgotBtn');
+  const knowBtn = document.getElementById('knowBtn');
+  const againBtn = document.getElementById('againBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const cardView = document.getElementById('cardView');
+  const celebrate = document.getElementById('celebrate');
+  const celebrateStats = document.getElementById('celebrateStats');
+  const streakNum = document.getElementById('streakNum');
+  const streakBox = document.getElementById('streakBox');
+
+  function shortTitle(t) {
+    const m = t.match(/БЛОК\s*(\d+)\.\s*([^\(]+)/);
+    if (m) return m[1] + '. ' + m[2].trim();
+    return t;
+  }
+
+  function render(str) {
+    let s = str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    s = s.replace(/```(?:\w+)?\n([\s\S]*?)```/g, function (m, code) { return '<pre><code>' + code.trim() + '</code></pre>'; });
+    const preBlocks = [];
+    s = s.replace(/<pre>[\s\S]*?<\/pre>/g, function (m) { preBlocks.push(m); return '\u0000PRE' + (preBlocks.length - 1) + '\u0000'; });
+    s = s.replace(/`([^`]+)`/g, '<code>$1</code>');
+    s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    s = s.split('\n').join('<br>');
+    s = s.replace(/\u0000PRE(\d+)\u0000/g, function (m, idx) { return preBlocks[parseInt(idx, 10)]; });
+    return s;
+  }
+
+  function renderTabs() {
+    tabsEl.innerHTML = '';
+    DATA.forEach((b, i) => {
+      const st = state.blocks[i];
+      const tab = document.createElement('div');
+      tab.className = 'tab' + (i === state.blockIndex ? ' active' : '') + (st.done ? ' complete' : '');
+      const badge = st.done ? '✅' : (st.mastered + '/' + st.total);
+      tab.innerHTML = shortTitle(b.title) + ' <span class="count">' + badge + '</span>';
+      tab.addEventListener('click', () => { state.blockIndex = i; renderCard(); renderTabs(); });
+      tabsEl.appendChild(tab);
+    });
+  }
+
+  function currentBlock() { return DATA[state.blockIndex]; }
+  function currentState() { return state.blocks[state.blockIndex]; }
+
+  function renderCard() {
+    const block = currentBlock();
+    const st = currentState();
+    renderTabs();
+
+    if (st.queue.length === 0) {
+      cardView.style.display = 'none';
+      celebrate.classList.add('show');
+      forgotBtn.style.display = 'none';
+      knowBtn.style.display = 'none';
+      againBtn.style.display = 'block';
+      celebrateStats.textContent = st.total + ' карточек в этом блоке — все знаешь. Стрик: ' + state.streak;
+      progressFill.style.width = '100%';
+      progressLabel.textContent = st.total + ' / ' + st.total;
+      st.done = true;
+      renderTabs();
+      return;
+    }
+
+    cardView.style.display = 'flex';
+    celebrate.classList.remove('show');
+    againBtn.style.display = 'none';
+
+    const ci = st.queue[0];
+    const card = block.cards[ci];
+
+    cardEyebrow.textContent = shortTitle(block.title) + ' · осталось ' + st.queue.length;
+    qText.innerHTML = render(card.q);
+    aText.innerHTML = render(card.a);
+    aWrap.classList.remove('shown');
+    blurHint.style.display = 'block';
+    forgotBtn.style.display = 'none';
+    knowBtn.style.display = 'none';
+
+    const doneCount = st.mastered;
+    const pct = Math.round((doneCount / st.total) * 100);
+    progressFill.style.width = pct + '%';
+    progressLabel.textContent = doneCount + ' / ' + st.total;
+  }
+
+  function reveal() {
+    aWrap.classList.add('shown');
+    blurHint.style.display = 'none';
+    forgotBtn.style.display = 'flex';
+    knowBtn.style.display = 'flex';
+  }
+
+  function bumpStreak(up) {
+    if (up) { state.streak += 1; }
+    else { state.streak = 0; }
+    streakNum.textContent = state.streak;
+    streakBox.classList.remove('pulse');
+    void streakBox.offsetWidth;
+    streakBox.classList.add('pulse');
+  }
+
+  cardView.addEventListener('click', function () {
+    if (!aWrap.classList.contains('shown')) reveal();
+  });
+
+  forgotBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    const st = currentState();
+    const ci = st.queue.shift();
+    const insertAt = Math.min(3, st.queue.length);
+    st.queue.splice(insertAt, 0, ci);
+    bumpStreak(false);
+    renderCard();
+  });
+
+  knowBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    const st = currentState();
+    st.queue.shift();
+    st.mastered += 1;
+    bumpStreak(true);
+    renderCard();
+  });
+
+  againBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    const st = currentState();
+    st.queue = makeQueue(st.total);
+    st.mastered = 0;
+    st.done = false;
+    renderCard();
+  });
+
+  resetBtn.addEventListener('click', function (e) {
+    e.stopPropagation();
+    const st = currentState();
+    st.queue = makeQueue(st.total);
+    st.mastered = 0;
+    st.done = false;
+    renderCard();
+  });
+
+  renderTabs();
+  renderCard();
+})();
+</script>
+</body>
+</html>
